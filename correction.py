@@ -1,0 +1,14 @@
+import file_system
+import ollama_client
+import prompts
+
+class Correction:
+    def __init__(self, path_settings: file_system.Path_Settings):
+        self.path_settings = path_settings
+
+    def correct(self, ex_number: int) -> str:
+        markdown_content = file_system.read_text(str(self.path_settings.get_input_fpath(ex_number)))
+
+        self.current_correction = ollama_client.prompt_model(prompts.FINAL_PROMPT, markdown_content, model="qwen3.5:9b")
+
+        file_system.write_text(self.path_settings.get_output_fpath(ex_number), self.current_correction)

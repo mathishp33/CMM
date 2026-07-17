@@ -1,9 +1,10 @@
+import config
 import file_system
 import ollama_client
 import prompts
 
 class Correction:
-    def __init__(self, path_settings: file_system.Path_Settings):
+    def __init__(self, path_settings: config.Path_Settings):
         self.path_settings = path_settings
 
     def correct(self, ex_number: int) -> str:

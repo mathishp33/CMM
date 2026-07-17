@@ -1,22 +1,38 @@
+import file_explorer
+
 import sys
 from pathlib import Path
+import json
 
-from PySide6.QtCore import Qt, QDir
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
-    QTreeView,
     QWidget,
     QHBoxLayout,
-    QTextEdit,
-    QTreeWidget,
     QSplitter,
     QFrame,
-    QFileSystemModel,
     QTextBrowser,
     QFileDialog,
     QLineEdit,
 )
+
+def save_path_to_json(path):
+    info_path = Path(__file__).parent.parent.parent / "resources" / "info.json"
+    with open(info_path, "r") as f:
+        data = json.load(f)
+
+    data["root_dir"] = path
+
+    with open(info_path, "w") as f:
+        json.dump(data, f, indent=2)
+
+def get_saved_path_from_json():
+    info_path = Path(__file__).parent.parent.parent / "resources" / "info.json"
+    with open(info_path, "r") as f:
+        data = json.load(f)
+
+    return data.get("root_dir", str(Path.home()))
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -50,51 +66,40 @@ class MainWindow(QMainWindow):
 
     def set_root(self, path):
         self.current_root = path
-
-        index = self.model.setRootPath(path)
-        self.tree.setRootIndex(index)
+        save_path_to_json(path)
+        self.tree.set_root(path)
         self.path_edit.setText(path)
 
-    def open_file(self, index):
-        path = self.model.filePath(index)
+    def _root_changed(self, path):
+        self.current_root = path
+        save_path_to_json(path)
+        self.path_edit.setText(path)
 
-        if path.endswith(".md"):
-            markdown = Path(path).read_text(encoding="utf-8")
-            self.markdown_viewer.setMarkdown(markdown)
+    def open_file(self, path):
+        markdown = Path(path).read_text(encoding="utf-8")
+        self.markdown_viewer.setMarkdown(markdown)
 
-    def initUI(self):
-        #file system navigator
-        top_left_f = QFrame()
-        top_left_f.setFrameShape(QFrame.Shape.Panel)
-        top_left_layout = QHBoxLayout(top_left_f)
+    def initFileExplorer(self):
+        self.current_root = get_saved_path_from_json()
+        if get_saved_path_from_json() == "":
+            self.current_root = str(Path.home())
 
-        self.model = QFileSystemModel()
-        self.model.setRootPath(str(Path.home()))
-        self.model.setNameFilters(["*.md"])
-        self.model.setNameFilterDisables(False)
-        self.model.setFilter(QDir.AllDirs | QDir.Files | QDir.NoDotAndDotDot)
-
-        self.tree = QTreeView()
-        self.tree.setModel(self.model)
-        self.tree.setRootIndex(self.model.index(str(Path.home())))
-        self.tree.hideColumn(1)
-        self.tree.hideColumn(2)
-        self.tree.hideColumn(3)
-        self.tree.clicked.connect(self.open_file)
-
-        self.current_root = str(Path.home())
         self.path_edit = QLineEdit()
         self.path_edit.returnPressed.connect(self.goto_path)
 
         self.toolbar = self.addToolBar("Explorer")
-
         self.toolbar.addAction("↑", self.go_up)
         self.toolbar.addAction("📂", self.open_dir)
-
         self.toolbar.addWidget(self.path_edit)
 
-        top_left_layout.addWidget(self.tree)
-        top_left_layout.addWidget(self.toolbar)
+        self.tree = file_explorer.CustomFileExplorer()
+        self.tree.fileSelected.connect(self.open_file)
+        self.tree.rootChanged.connect(self._root_changed)
+
+        self.set_root(self.current_root)
+
+    def initUI(self):
+        self.initFileExplorer()
 
         bottom = QFrame()
         bottom.setFrameShape(QFrame.Shape.StyledPanel)
@@ -103,7 +108,7 @@ class MainWindow(QMainWindow):
         self.markdown_viewer = QTextBrowser()
  
         # Create horizontal splitter to divide top area
-        splitter1 = QSplitter(Qt.Orientation.Horizontal)
+        splitter1 = QSplitter(Qt.Horizontal)
         splitter1.addWidget(self.tree)
         splitter1.addWidget(self.markdown_viewer)
         # Set initial widget sizes
@@ -127,9 +132,10 @@ class MainWindow(QMainWindow):
         self.setGeometry(300, 300, 300, 200)
         self.setWindowTitle("QSplitter")
         self.show()
-app = QApplication(sys.argv)
 
-window = MainWindow()
-window.show()
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
 
-app.exec()
+    window = MainWindow()
+
+    app.exec()

@@ -1,5 +1,5 @@
-import correction
-import file_system
+import src.core.correction as correction
+import src.core.file_system as file_system
 
 from pathlib import Path
 

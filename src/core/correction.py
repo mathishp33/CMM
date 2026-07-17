@@ -1,7 +1,7 @@
-import config
-import file_system
-import ollama_client
-import prompts
+import src.core.config as config
+import src.core.file_system as file_system
+import src.core.ollama_client as ollama_client
+import src.core.prompts as prompts
 
 class Correction:
     def __init__(self, path_settings: config.Path_Settings):

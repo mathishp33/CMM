@@ -1,8 +1,4 @@
-import src.core.correction as correction
-import src.core.file_system as file_system
-
-from pathlib import Path
-
+from src.ui import ui
 
 """
 TODO: 
@@ -24,11 +20,4 @@ WORKFLOW:
 
 
 if __name__ == "__main__":
-    workspace = r"C:\Users\mathi\Desktop\Prépa\Entrainement pour la rentrée\Entrainement MP2I"
-    TD_dir = Path(workspace) / "TD"
-    TD_corriges_dir = Path(workspace) / "TD corrigés"
-    TD_name = "Sommes & Calculs Algébriques"
-    ex_number = 1
-    
-    correction = correction.Correction(file_system.Path_Settings(workspace, TD_dir, TD_corriges_dir, TD_name))
-    correction.correct(ex_number)
+    ui.launch_app()

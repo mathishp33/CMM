@@ -1,8 +1,10 @@
-import file_explorer
+from src.ui import file_explorer
+from src.core import correction as correction_file
+from src.core import config
+from src.core import file_system
 
 import sys
 from pathlib import Path
-import json
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -12,35 +14,18 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QSplitter,
     QFrame,
-    QTextBrowser,
     QFileDialog,
     QLineEdit,
+    QLabel,
+    QPushButton,
+    QGridLayout,
+    QSpinBox
 )
-
-def save_path_to_json(path):
-    info_path = Path(__file__).parent.parent.parent / "resources" / "info.json"
-    with open(info_path, "r") as f:
-        data = json.load(f)
-
-    data["root_dir"] = path
-
-    with open(info_path, "w") as f:
-        json.dump(data, f, indent=2)
-
-def get_saved_path_from_json():
-    info_path = Path(__file__).parent.parent.parent / "resources" / "info.json"
-    with open(info_path, "r") as f:
-        data = json.load(f)
-
-    return data.get("root_dir", str(Path.home()))
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
-
-        self.setWindowTitle("Correcteur Mathématique Mardown (CMM)")
-        self.resize(900, 650)
 
     def open_dir(self):
         folder = QFileDialog.getExistingDirectory(
@@ -53,89 +38,118 @@ class MainWindow(QMainWindow):
             self.set_root(folder)
 
     def goto_path(self):
-        path = self.path_edit.text()
+        path = self.workspace_edit.text()
 
         if Path(path).exists():
-            self.set_root(path)
+            self.set_workspace(path)
 
     def go_up(self):
         parent = Path(self.current_root).parent
 
         if parent != Path(self.current_root):
-            self.set_root(str(parent))
+            self.set_workspace(str(parent))
 
-    def set_root(self, path):
-        self.current_root = path
-        save_path_to_json(path)
-        self.tree.set_root(path)
-        self.path_edit.setText(path)
+    def set_workspace(self, path):
+        self.current_workspace = path
+        file_system.save_to_json("dir", path)
+        self.tree.set_workspace(path)
+        self.workspace_edit.setText(path)
 
-    def _root_changed(self, path):
-        self.current_root = path
-        save_path_to_json(path)
-        self.path_edit.setText(path)
+    def _workspace_changed(self, path):
+        self.current_workspace = path
+        file_system.save_to_json("dir", path)
+        self.workspace_edit.setText(path)
 
     def open_file(self, path):
-        markdown = Path(path).read_text(encoding="utf-8")
-        self.markdown_viewer.setMarkdown(markdown)
+        name = Path(path).parent.name
+        self.TD_name.setText(name)
+        file_system.save_to_json("TD_name", name)
+
+    def set_ex_nbr(self, value):
+        file_system.save_to_json("ex_nbr", str(value))
+
+    def correct_file(self):
+        try:
+            TD_dir = Path(self.current_workspace) / "TD"
+            TD_corriges_dir = Path(self.current_workspace) / "TD corrigés"
+            
+            correction = correction_file.Correction(config.Path_Settings(self.current_workspace, 
+                                                                TD_dir, TD_corriges_dir, self.TD_name.text()))
+            correction.correct(self.ex_nbr.value())
+        except Exception as e:
+            print("Exception at correct_file function: ", e)
 
     def initFileExplorer(self):
-        self.current_root = get_saved_path_from_json()
-        if get_saved_path_from_json() == "":
-            self.current_root = str(Path.home())
+        self.current_workspace: str = file_system.get_from_json("dir", str(Path.home))
 
-        self.path_edit = QLineEdit()
-        self.path_edit.returnPressed.connect(self.goto_path)
+        workspace_label = QLabel("Workspace: ")
+        self.workspace_edit = QLineEdit()
+        self.workspace_edit.returnPressed.connect(self.goto_path)
 
         self.toolbar = self.addToolBar("Explorer")
         self.toolbar.addAction("↑", self.go_up)
         self.toolbar.addAction("📂", self.open_dir)
-        self.toolbar.addWidget(self.path_edit)
+        self.toolbar.addWidget(workspace_label)
+        self.toolbar.addWidget(self.workspace_edit)
 
         self.tree = file_explorer.CustomFileExplorer()
         self.tree.fileSelected.connect(self.open_file)
-        self.tree.rootChanged.connect(self._root_changed)
+        self.tree.workspaceChanged.connect(self._workspace_changed)
 
-        self.set_root(self.current_root)
+        self.set_workspace(self.current_workspace)
 
     def initUI(self):
+        # file explorer
         self.initFileExplorer()
 
-        bottom = QFrame()
-        bottom.setFrameShape(QFrame.Shape.StyledPanel)
- 
-        # Create a markdown viewer using QTextBrowser
-        self.markdown_viewer = QTextBrowser()
- 
-        # Create horizontal splitter to divide top area
+        # correction frame
+        self.correction_frame = QFrame()
+        self.correction_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        self.correction_layout = QGridLayout(self.correction_frame)
+        self.correction_layout.setVerticalSpacing(5)
+        self.correction_layout.setContentsMargins(5, 5, 5, 5)
+
+        self.TD_name = QLineEdit(text = file_system.get_from_json("TD_name", ""))
+        self.TD_name.setFixedWidth(200)
+        self.ex_nbr = QSpinBox(value = int(file_system.get_from_json("ex_nbr", "1")))
+        self.ex_nbr.valueChanged.connect(self.set_ex_nbr)
+        self.ex_nbr.setFixedWidth(100)
+
+        self.correct_button = QPushButton("Corriger")
+        self.correct_button.clicked.connect(self.correct_file)
+        self.correction_layout.addWidget(QLabel("Nom du TD: "), 0, 0, alignment = Qt.AlignRight)
+        self.correction_layout.addWidget(self.TD_name, 0, 1, alignment = Qt.AlignLeft)
+        self.correction_layout.addWidget(QLabel("N° de l'exercice: "), 1, 0, alignment = Qt.AlignRight)
+        self.correction_layout.addWidget(self.ex_nbr, 1, 1, alignment = Qt.AlignLeft)
+
+        self.correction_layout.addWidget(self.correct_button)
+
+        # performance frame
+        perf_frame = QFrame()
+        perf_frame.setFrameShape(QFrame.Shape.StyledPanel)
+
         splitter1 = QSplitter(Qt.Horizontal)
         splitter1.addWidget(self.tree)
-        splitter1.addWidget(self.markdown_viewer)
-        # Set initial widget sizes
-        splitter1.setSizes([100, 200])
- 
-        # Create vertical splitter to divide left and bottom areas
+        splitter1.addWidget(self.correction_frame)
+        splitter1.setSizes([250, 550])
+
         splitter2 = QSplitter(Qt.Orientation.Vertical)
         splitter2.addWidget(splitter1)
-        splitter2.addWidget(bottom)
-        splitter2.setSizes([100, 100])
+        splitter2.addWidget(perf_frame)
+        splitter2.setSizes([350, 250])
  
-        # Create a central widget and layout to hold the splitters
         central_widget = QWidget()
         hbox = QHBoxLayout(central_widget)
         hbox.addWidget(splitter2)
         self.setCentralWidget(central_widget)
  
-        # Apply cleanlooks style for visual consistency
         QApplication.setStyle("cleanlooks")
  
-        self.setGeometry(300, 300, 300, 200)
-        self.setWindowTitle("QSplitter")
+        self.setGeometry(50, 50, 800, 600)
+        self.setWindowTitle("CMM - Correcteur Mathématique Markdown")
         self.show()
 
-if __name__ == "__main__":
+def launch_app():
     app = QApplication(sys.argv)
-
     window = MainWindow()
-
     app.exec()

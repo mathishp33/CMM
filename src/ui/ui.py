@@ -1,12 +1,12 @@
 from src.ui import file_explorer
-from src.core import correction as correction_file
+from src.ui import worker
 from src.core import config
 from src.core import file_system
 
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -23,6 +23,8 @@ from PySide6.QtWidgets import (
 )
 
 class MainWindow(QMainWindow):
+    startCorrection = Signal(int, object)
+
     def __init__(self):
         super().__init__()
         self.initUI()
@@ -35,7 +37,7 @@ class MainWindow(QMainWindow):
         )
 
         if folder:
-            self.set_root(folder)
+            self.set_workspace(folder)
 
     def goto_path(self):
         path = self.workspace_edit.text()
@@ -44,9 +46,9 @@ class MainWindow(QMainWindow):
             self.set_workspace(path)
 
     def go_up(self):
-        parent = Path(self.current_root).parent
+        parent = Path(self.current_workspace).parent
 
-        if parent != Path(self.current_root):
+        if parent != Path(self.current_workspace):
             self.set_workspace(str(parent))
 
     def set_workspace(self, path):
@@ -69,18 +71,42 @@ class MainWindow(QMainWindow):
         file_system.save_to_json("ex_nbr", str(value))
 
     def correct_file(self):
-        try:
-            TD_dir = Path(self.current_workspace) / "TD"
-            TD_corriges_dir = Path(self.current_workspace) / "TD corrigés"
-            
-            correction = correction_file.Correction(config.Path_Settings(self.current_workspace, 
-                                                                TD_dir, TD_corriges_dir, self.TD_name.text()))
-            correction.correct(self.ex_nbr.value())
-        except Exception as e:
-            print("Exception at correct_file function: ", e)
+        TD_dir = Path(self.current_workspace) / "TD"
+        TD_corriges_dir = Path(self.current_workspace) / "TD corrigés"
+
+        settings = config.Path_Settings(
+            self.current_workspace,
+            TD_dir,
+            TD_corriges_dir,
+            self.TD_name.text()
+        )
+
+        self.thread = QThread()
+        self.worker = worker.CorrectionWorker()
+
+        self.worker.moveToThread(self.thread)
+
+        self.startCorrection.connect(self.worker.correct)
+
+        self.worker.running.connect(self.get_thread_state)
+        self.worker.log.connect(self.get_thread_log)
+
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+
+        self.thread.start()
+
+        self.startCorrection.emit(self.ex_nbr.value(), settings)
+
+    def get_thread_state(self, running):
+        self.correct_button.setEnabled(not running)
+
+    def get_thread_log(self, message):
+        print(message)
 
     def initFileExplorer(self):
-        self.current_workspace: str = file_system.get_from_json("dir", str(Path.home))
+        self.current_workspace: str = file_system.get_from_json("dir", str(Path.home()))
 
         workspace_label = QLabel("Workspace: ")
         self.workspace_edit = QLineEdit()

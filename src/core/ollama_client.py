@@ -1,6 +1,5 @@
 import requests
 
-
 def prompt_model(prompt: str, file_content: str, model: str) -> str:
     messages = [
         {

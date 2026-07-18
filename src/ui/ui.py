@@ -51,24 +51,27 @@ class MainWindow(QMainWindow):
         if parent != Path(self.current_workspace):
             self.set_workspace(str(parent))
 
-    def set_workspace(self, path):
+    def set_workspace(self, path: str):
         self.current_workspace = path
         file_system.save_to_json("dir", path)
         self.tree.set_workspace(path)
         self.workspace_edit.setText(path)
 
-    def _workspace_changed(self, path):
+    def _workspace_changed(self, path: str):
         self.current_workspace = path
         file_system.save_to_json("dir", path)
         self.workspace_edit.setText(path)
 
-    def open_file(self, path):
+    def open_file(self, path: str):
         name = Path(path).parent.name
         self.TD_name.setText(name)
         file_system.save_to_json("TD_name", name)
 
-    def set_ex_nbr(self, value):
+    def set_ex_nbr(self, value: int):
         file_system.save_to_json("ex_nbr", str(value))
+
+    def set_model_name(self, name: str):
+        file_system.save_to_json("model_name", name)
 
     def correct_file(self):
         TD_dir = Path(self.current_workspace) / "TD"
@@ -103,7 +106,7 @@ class MainWindow(QMainWindow):
         self.correct_button.setEnabled(not running)
 
     def get_thread_log(self, message):
-        print(message)
+        self.log_label.setText(message)
 
     def initFileExplorer(self):
         self.current_workspace: str = file_system.get_from_json("dir", str(Path.home()))
@@ -140,6 +143,12 @@ class MainWindow(QMainWindow):
         self.ex_nbr = QSpinBox(value = int(file_system.get_from_json("ex_nbr", "1")))
         self.ex_nbr.valueChanged.connect(self.set_ex_nbr)
         self.ex_nbr.setFixedWidth(100)
+        self.model_name = QLineEdit(text = file_system.get_from_json("model_name", ""))
+        self.model_name.setFixedWidth(150)
+        self.model_name.textChanged.connect(self.set_model_name)
+        self.current_log = "En attente d'un fichier à corriger."
+        self.log_label = QLineEdit(readOnly = True, text = self.current_log)
+        self.log_label.setFixedWidth(250)
 
         self.correct_button = QPushButton("Corriger")
         self.correct_button.clicked.connect(self.correct_file)
@@ -147,8 +156,11 @@ class MainWindow(QMainWindow):
         self.correction_layout.addWidget(self.TD_name, 0, 1, alignment = Qt.AlignLeft)
         self.correction_layout.addWidget(QLabel("N° de l'exercice: "), 1, 0, alignment = Qt.AlignRight)
         self.correction_layout.addWidget(self.ex_nbr, 1, 1, alignment = Qt.AlignLeft)
-
-        self.correction_layout.addWidget(self.correct_button)
+        self.correction_layout.addWidget(QLabel("Nom du modèle Ollama: "), 2, 0, alignment = Qt.AlignRight)
+        self.correction_layout.addWidget(self.model_name, 2, 1, alignment = Qt.AlignLeft)
+        self.correction_layout.addWidget(self.correct_button, 3, 1, alignment = Qt.AlignLeft)
+        self.correction_layout.addWidget(QLabel("Etat de la correction: "), 4, 0, alignment = Qt.AlignRight)
+        self.correction_layout.addWidget(self.log_label, 4, 1, alignment = Qt.AlignLeft)
 
         # performance frame
         perf_frame = QFrame()

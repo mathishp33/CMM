@@ -2,11 +2,7 @@ from src.ui import ui
 
 """
 TODO: 
- - interface CMD stylé avec : 
-   - fenetre pour sélectionner le fichier à corriger
-   - visualisation des performances du pc (RAM, CPU, GPU, etc...)
-   - des messages à l'utilisateur pour l'informer du stade de la correction (init, lecture, correction, écriture, finit)
- 
+ - visualisation des performances du pc (RAM, CPU, GPU, etc...)
 
 WORKFLOW:
 

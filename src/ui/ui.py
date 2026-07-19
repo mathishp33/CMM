@@ -148,7 +148,7 @@ class MainWindow(QMainWindow):
         self.model_name.textChanged.connect(self.set_model_name)
         self.current_log = "En attente d'un fichier à corriger."
         self.log_label = QLineEdit(readOnly = True, text = self.current_log)
-        self.log_label.setFixedWidth(250)
+        self.log_label.setFixedWidth(300)
 
         self.correct_button = QPushButton("Corriger")
         self.correct_button.clicked.connect(self.correct_file)
